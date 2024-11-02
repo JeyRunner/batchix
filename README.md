@@ -24,7 +24,7 @@ carry, out = scan_batched(
     process_batch,
     x=jnp.arange(15),
     batch_size=10,
-    # takes care of the data not being decidable by the batch size
+    # takes care of the data not being dividable by the batch size
     # makes separate call to process_batch for the last remaining elements
     batch_remainder_stategy='ExtraLastBatch'
 )
@@ -43,7 +43,7 @@ carry, out = scan_batched(
     process_batch,
     x=jnp.arange(15),
     batch_size=10,
-    # takes care of the data not being decidable by the batch size
+    # takes care of the data not being dividable by the batch size
     # makes separate call to process_batch for the last remaining elements
     batch_remainder_stategy='PadAndExtraLastBatch'
 )
