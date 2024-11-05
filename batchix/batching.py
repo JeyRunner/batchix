@@ -5,10 +5,10 @@ from typing import TypeVar, Literal
 import chex
 import jax
 import numpy as np
+import numpy.lib.index_tricks
 from einshape import jax_einshape as einshape
 from jax import numpy as jnp
 from jaxtyping import PyTree, Shaped, Array, Integer
-from numpy.lib._index_tricks_impl import IndexExpression
 
 from batchix.tree_shape import (
     pytree_get_shape_first_axis_equal,
@@ -162,7 +162,7 @@ def pytree_concatenate_each_leaf(x: list[PyTree["T"]], axis: int = 0) -> PyTree[
 
 
 def pytree_sub_index_each_leaf(
-    x: PyTree["T"], index: IndexExpression | Integer[Array, "..."] | int
+    x: PyTree["T"], index: numpy.lib.index_tricks.IndexExpression | Integer[Array, "..."] | int
 ) -> PyTree["T"]:
     """
     Takes just the elements of the index expression of each leaf in the tree.

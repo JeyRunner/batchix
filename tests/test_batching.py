@@ -1,6 +1,7 @@
 from unittest import TestCase
 
 import chex
+import jax
 import jax.numpy as jnp
 import pytest
 
