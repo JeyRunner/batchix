@@ -1,5 +1,5 @@
 # Batchix
-This is utility package for jax for handing batched data.
+This is a utility package for jax for handing batched data.
 Its features include:
  - splitting pytrees in to batches of fixed size 
  - recombining a pytree split into batches
