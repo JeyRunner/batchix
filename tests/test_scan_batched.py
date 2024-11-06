@@ -21,7 +21,7 @@ class TestVmapScan(TestCase):
             process_batch,
             data,
             batch_size=10,
-            batch_remainder_stategy='None'
+            batch_remainder_strategy='None'
         )
         chex.assert_trees_all_equal(out, data['a']*2)
 
@@ -36,9 +36,30 @@ class TestVmapScan(TestCase):
             process_batch,
             data,
             batch_size=10,
-            batch_remainder_stategy='ExtraLastBatch'
+            batch_remainder_strategy='ExtraLastBatch'
         )
         chex.assert_trees_all_equal(out, data['a']*2)
+
+
+    def test_scan_batched_ExtraLastBatch_different_y_shapes(self):
+        data = make_test_pytree(35)
+
+        def process_batch(carry, x):
+            y = dict(
+                a=x['a']*2,
+                sum=jnp.sum(x['a'])
+            )
+            return carry, y
+
+        carry, out = scan_batched(
+            process_batch,
+            data,
+            batch_size=10,
+            batch_remainder_strategy='ExtraLastBatch'
+        )
+        chex.assert_trees_all_equal(out['a'], data['a']*2)
+        chex.assert_shape(out['sum'], (4,))
+        self.assertEqual(jnp.sum(out['sum']), jnp.sum(data['a']))
 
 
     def test_scan_batched_fit_ExtraLastBatch(self):
@@ -51,7 +72,7 @@ class TestVmapScan(TestCase):
             process_batch,
             data,
             batch_size=10,
-            batch_remainder_stategy='ExtraLastBatch'
+            batch_remainder_strategy='ExtraLastBatch'
         )
         chex.assert_trees_all_equal(out, data['a']*2)
 
@@ -70,9 +91,34 @@ class TestVmapScan(TestCase):
             data,
             batch_size=10,
             fn_carry_init=0,
-            batch_remainder_stategy='PadAndExtraLastBatch'
+            batch_remainder_strategy='PadAndExtraLastBatch'
         )
         chex.assert_trees_all_equal(out, data['a']*2)
         chex.assert_trees_all_equal(carry, jnp.sum(data['a']))
+
+
+    def test_scan_batched_PadAndExtraLastBatch__with_batch_summary(self):
+        data = make_test_pytree(35)
+
+        # carry for test
+        def process_batch(carry, x, valid_x_mask, invalid_last_n_elements_in_x: int):
+            y = x['a']*2
+            y = y[valid_x_mask]
+            sum = jnp.sum(x['a'][valid_x_mask])
+            return carry, y, sum
+
+        carry, out, out_summary_per_batch = scan_batched(
+            process_batch,
+            data,
+            batch_size=10,
+            fn_carry_init=0,
+            batch_remainder_strategy='PadAndExtraLastBatch'
+        )
+        chex.assert_trees_all_equal(out, data['a']*2)
+        chex.assert_shape(out_summary_per_batch, (4,))
+        chex.assert_trees_all_equal(out_summary_per_batch[0], jnp.sum(data['a'][:10]))
+        chex.assert_trees_all_equal(out_summary_per_batch[1], jnp.sum(data['a'][10:20]))
+        chex.assert_trees_all_equal(out_summary_per_batch[2], jnp.sum(data['a'][20:30]))
+        chex.assert_trees_all_equal(out_summary_per_batch[3], jnp.sum(data['a'][30:]))
 
 

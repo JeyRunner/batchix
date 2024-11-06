@@ -19,6 +19,8 @@ class TestBatching(TestCase):
                 batch_remainder_strategy='None'
             )
 
+
+
     def test_pytree_split_in_batches_with_remainder_batch_fits(self):
         data = make_test_pytree(20)
         data_batched, data_batched_remainder = pytree_split_in_batches_with_remainder(
@@ -43,6 +45,20 @@ class TestBatching(TestCase):
         chex.assert_tree_shape_prefix(data_batched, (4, 10))
         data_recombined = pytree_combine_batches(data_batched, data_batched_remainder)
         chex.assert_trees_all_equal(data, data_recombined)
+
+
+    def test_pytree_split_in_batches_with_remainder_batch_PadValidSampled(self):
+        data = make_test_pytree(35)
+        data_batched, data_batched_remainder = pytree_split_in_batches_with_remainder(
+            data,
+            batch_size=10,
+            batch_remainder_strategy='PadValidSampled',
+            rng_key=jax.random.PRNGKey(0)
+        )
+        self.assertEqual(data_batched_remainder, None)
+        chex.assert_tree_shape_prefix(data_batched, (4, 10))
+        data_recombined = pytree_combine_batches(data_batched, data_batched_remainder)
+        chex.assert_trees_all_equal(data, pytree_sub_index_each_leaf(data_recombined, jnp.s_[:-5]))
 
 
     def test_pytree_split_in_batches_with_remainder_batch_ExtraLastBatch(self):

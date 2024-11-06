@@ -1,11 +1,10 @@
 import math
 from argparse import ArgumentError
-from typing import TypeVar, Literal
+from typing import TypeVar, Literal, Any
 
 import chex
 import jax
 import numpy as np
-import numpy.lib.index_tricks
 from einshape import jax_einshape as einshape
 from jax import numpy as jnp
 from jaxtyping import PyTree, Shaped, Array, Integer
@@ -42,7 +41,8 @@ def pytree_pad(
 
 def pytree_split_in_batches_with_remainder(
     x: X, batch_size: int,
-    batch_remainder_strategy: Literal['None', 'Pad', 'ExtraLastBatch'] = 'None'
+    batch_remainder_strategy: Literal['None', 'Pad', 'PadValidSampled', 'ExtraLastBatch'] = 'None',
+    rng_key: jax.random.PRNGKey = None
 ) -> tuple[X, int | X | None]:
     """
     Splits pytree x into batches by adding a first batch dimension.
@@ -54,8 +54,14 @@ def pytree_split_in_batches_with_remainder(
     :param batch_remainder_strategy:
         How to handle the case if the number of elements in x is not dividable by batch_size:
         'None': fail if there is a remainder.
-        'Pad': Pad missing elements in last batch, return the number of padded elements as second value.
+        'Pad': Pad missing elements in last batch (by repeating last element in x),
+            return the number of padded elements as second value.
+        'PadValidSampled': Pad missing elements in last batch with random samples from x,
+                            Thus also these elements are valid and second return value is None.
+                            In this case rng_key has to be provided.
+                            For example this can be used for training a model and the train data is randomized anyway.
         'ExtraLastBatch': Return the last batch with a smaller size as second value.
+    :param rng_key: Sampling key for batch_remainder_strategy=PadValidSampled.
     :return: (
         x split into batches,
         x_remain_elements that need to be ignored from the last batch or last batch with smaller size
@@ -78,10 +84,21 @@ def pytree_split_in_batches_with_remainder(
         elif batch_remainder_strategy == 'Pad':
             x, _ = pytree_pad(x, pad_add_elements=x_remain_elements)
             batch_remainder = x_remain_elements
+        elif batch_remainder_strategy == 'PadValidSampled':
+            assert rng_key is not None, "when choosing PadValidSampled rng_key has to be provided"
+            x = jax.tree_util.tree_map(
+                lambda el: jnp.concat([
+                    el,
+                    jax.random.choice(rng_key, el, axis=0, shape=(x_remain_elements,))
+                ], axis=0),
+                x
+            )
+            batch_remainder = None
         elif batch_remainder_strategy == 'ExtraLastBatch':
-            batch_remainder = pytree_sub_index_each_leaf(x, jnp.s_[-x_remain_elements:])
-            x = pytree_sub_index_each_leaf(x, jnp.s_[:-x_remain_elements])
             num_batches = num_batches - 1
+            elements_in_last_batch = x_shape_zero - num_batches * batch_size
+            batch_remainder = pytree_sub_index_each_leaf(x, jnp.s_[-elements_in_last_batch:])
+            x = pytree_sub_index_each_leaf(x, jnp.s_[:-elements_in_last_batch])
         else:
             raise ArgumentError(batch_remainder_strategy, '')
 
@@ -102,7 +119,7 @@ def pytree_split_in_batches(x: X, batch_size: int, num_batches: int | None = Non
     """
     x_shape_zero = pytree_get_shape_first_axis_equal(x)
     assert x_shape_zero % batch_size == 0, (
-        "number of elements in x needs to be devidable by batch_size. "
+        f"number of elements in x ({x_shape_zero}) needs to be dividable by batch_size {batch_size}. "
         "Consider using pytree_split_in_batches_with_remainder"
     )
     num_batches_ = int(x_shape_zero / batch_size)
@@ -129,7 +146,6 @@ def pytree_combine_batches(
     :param batch_remainder: either the number of padded elements in the last batch or the last batch with size<batch_size.
     :return: pytree with flatted batches and removed first dim.
     """
-
     num_batches, batch_size = pytree_get_shape_first_n_equal(x, first_n_shape_elements=2)
     out_sub_idx = jnp.s_[:]
     final_x_shape_offset = 0
@@ -149,6 +165,41 @@ def pytree_combine_batches(
     if last_batch is not None:
         out = jax.tree_util.tree_map(lambda x, last: jnp.concat([x, last], axis=0), out, last_batch)
 
+    # more flexible check:
+    # check handles two cases:
+    #   a) all leafs of x have same number of samples per batch
+    #   b) or some leafs of x have just one sample per batch (to summarize each batch)
+    # def check_value_either_one_or_same(v, full_size = None, or_value=1, msg ='', samples_dim=1):
+    #     def check_leaf(path, leaf_elements_per_batch):
+    #         nonlocal full_size
+    #         if leaf_elements_per_batch == or_value:
+    #             if full_size is None:
+    #                 full_size = leaf_elements_per_batch
+    #             else:
+    #                 assert full_size == leaf_elements_per_batch, (
+    #                     f"{msg} {full_size} or {or_value}. "
+    #                     f"But {path} has {leaf_elements_per_batch} size."
+    #                 )
+    #         else:
+    #             assert (
+    #                 f"{msg}{full_size} or {or_value}. "
+    #                 f"But {path} has {leaf_elements_per_batch} size."
+    #             )
+    #     num_elements_per_batch = jax.tree_util.tree_map(lambda leaf: leaf.shape[samples_dim], v)
+    #     jax.tree_util.tree_map_with_path(check_leaf, num_elements_per_batch)
+    #     if full_size is None:
+    #         full_size = 0
+    #     return full_size
+    # batch_size = check_value_either_one_or_same(x, msg="the elements per batch in x either need to be equal to batch_size")
+    # batch_size_last_batch = check_value_either_one_or_same(last_batch, samples_dim=0, msg="the elements per batch in x either need to be equal to batch_size")
+    # check_value_either_one_or_same(
+    #     out,
+    #     full_size=batch_size*num_batches + batch_size_last_batch,
+    #     samples_dim=0,
+    #     or_value=num_batches + (1 if last_batch is not None else 0),
+    #     msg="the elements per batch in x either need to be equal to batch_size"
+    # )
+
     chex.assert_tree_shape_prefix(out, (num_batches*batch_size + final_x_shape_offset, ))
     return out
 
@@ -162,7 +213,7 @@ def pytree_concatenate_each_leaf(x: list[PyTree["T"]], axis: int = 0) -> PyTree[
 
 
 def pytree_sub_index_each_leaf(
-    x: PyTree["T"], index: numpy.lib.index_tricks.IndexExpression | Integer[Array, "..."] | int
+    x: PyTree["T"], index: Any | Integer[Array, "..."] | int
 ) -> PyTree["T"]:
     """
     Takes just the elements of the index expression of each leaf in the tree.

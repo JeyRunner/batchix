@@ -13,7 +13,26 @@ Its features include:
 pip install git+https://github.com/JeyRunner/batchix.git
 ```
 
-## Examples
+## Usage
+### Split and Merge Batches
+Split array into batches:
+
+```python
+data_batched, data_batched_remainder = pytree_split_in_batches_with_remainder(
+    x=jnp.arange(15),
+    batch_size=10,
+    # takes care of the data not being dividable by the batch size
+    # data_batched_remainder is last batch that has smaller batch size
+    batch_remainder_strategy='ExtraLastBatch'
+)
+
+# transform data_batched, data_batched_remainder
+# e.g vmap/scan over data_batched and direct processing of last single batch data_batched_remainder
+
+data_recombined = pytree_combine_batches(data_batched, data_batched_remainder)
+```
+
+### Scan over Batches
 Split pytree in batches and scan over the batches:
 ```python
 def process_batch(carry, x):

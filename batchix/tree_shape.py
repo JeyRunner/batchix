@@ -16,11 +16,13 @@ def pytree_get_shape_first_n_equal(
     """
     if custom_error_msg is not None:
         custom_error_msg = custom_error_msg + ": "
+    else:
+        custom_error_msg = ''
 
     def reduce_x_shape_zero(pre_shape, el):
         assert (
             len(el.shape) >= first_n_shape_elements
-        ), f"{custom_error_msg}Tree element {el} (w{el.shape}) does not have the required number of {first_n_shape_elements} axis."
+        ), f"{custom_error_msg}Tree element {el} (with shape {el.shape}) does not have the required number of {first_n_shape_elements} axis."
         if pre_shape is not None:
             assert el.shape[:first_n_shape_elements] == pre_shape, (
                 f"{custom_error_msg}all pytree leafs need to have the first {first_n_shape_elements} shape sizes. "
