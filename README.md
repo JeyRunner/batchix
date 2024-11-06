@@ -15,8 +15,22 @@ pip install git+https://github.com/JeyRunner/batchix.git
 
 ## Usage
 ### Split and Merge Batches
-Split array into batches:
 
+Split array into batches and merge again:
+```python
+data_batched = pytree_split_in_batches(
+    x=jnp.arange(15),
+    batch_size=5,
+)
+
+# transform data_batched
+# e.g vmap/scan over data_batched to process each batch
+y = jax.vmap(lambda batch: batch**2)(data_batched)
+
+data_recombined = pytree_combine_batches(y)
+```
+
+Split array into batches and merge again with support for data not being dividable by the batch size:
 ```python
 data_batched, data_batched_remainder = pytree_split_in_batches_with_remainder(
     x=jnp.arange(15),
