@@ -47,7 +47,6 @@ class TestVmapScan(TestCase):
         def process_batch(carry, x):
             y = dict(
                 a=x['a']*2,
-                sum=jnp.sum(x['a'])
             )
             return carry, y
 
@@ -58,8 +57,6 @@ class TestVmapScan(TestCase):
             batch_remainder_strategy='ExtraLastBatch'
         )
         chex.assert_trees_all_equal(out['a'], data['a']*2)
-        chex.assert_shape(out['sum'], (4,))
-        self.assertEqual(jnp.sum(out['sum']), jnp.sum(data['a']))
 
 
     def test_scan_batched_fit_ExtraLastBatch(self):

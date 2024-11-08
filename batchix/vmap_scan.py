@@ -181,11 +181,12 @@ def scan_batched(
                 summary, batch_remainder=batch_remainder_summary
             )
 
-        # re-merge scan batches
-        y = pytree_combine_batches(
-            y, batch_remainder=batch_remainder
-        )
-        chex.assert_tree_shape_prefix(y, (num_elements,))
+        if y is not None:
+          # re-merge scan batches
+          y = pytree_combine_batches(
+              y, batch_remainder=batch_remainder
+          )
+          chex.assert_tree_shape_prefix(y, (num_elements,))
 
     if summary_per_batch is None:
         return carry, y
