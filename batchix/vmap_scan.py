@@ -1,7 +1,9 @@
 from typing import TypeVar, Callable, Any, Literal, Protocol
 
 import chex
+import flax
 import jax
+import jaxtyping
 from jax import numpy as jnp
 
 from batchix.batching import pytree_split_in_batches_with_remainder, pytree_combine_batches, pytree_pad, \
@@ -128,6 +130,11 @@ def scan_batched(
     """
     num_elements = pytree_get_shape_first_axis_equal(x)
 
+    @flax.struct.dataclass
+    class YWithSummary:
+        y: jaxtyping.PyTree
+        summary: jaxtyping.PyTree
+
     def scan_fn(carry: Carry, x: X, invalid_last_n_elements_in_x: int = 0) -> tuple[Carry, Y]:
         if batch_remainder_strategy == 'PadAndExtraLastBatch':
             n_invalid = None if invalid_last_n_elements_in_x == 0 else invalid_last_n_elements_in_x
@@ -140,7 +147,7 @@ def scan_batched(
             o = fn(carry, x)
         if len(o) > 2:
             carry, y, summary = o
-            return carry, (y, summary)
+            return carry, YWithSummary(y=y, summary=summary)
         else:
             return o
 
@@ -173,9 +180,9 @@ def scan_batched(
                 carry = carry_new
 
         # check if y is tuple and contains a second summary element per batch
-        if isinstance(y, tuple):
-            y, summary = y
-            batch_remainder, batch_remainder_summary = batch_remainder
+        if isinstance(y, YWithSummary):
+            y, summary = y.y, y.summary
+            batch_remainder, batch_remainder_summary = batch_remainder.y, batch_remainder.summary
             summary, batch_remainder_summary = pytree_sub_index_each_leaf((summary, batch_remainder_summary), jnp.s_[jnp.newaxis])
             summary_per_batch = pytree_combine_batches(
                 summary, batch_remainder=batch_remainder_summary
