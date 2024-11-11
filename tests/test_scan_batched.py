@@ -26,6 +26,22 @@ class TestVmapScan(TestCase):
         chex.assert_trees_all_equal(out, data['a']*2)
 
 
+    def test_scan_batched_fit_None_direct_call(self):
+        data = make_test_pytree(30)
+
+        def process_batch(carry, x):
+            return carry, (x['a']*2, x['a']*3)
+
+        carry, (out, out2) = scan_batched(
+            process_batch,
+            data,
+            batch_size=50,
+            batch_remainder_strategy='None'
+        )
+        chex.assert_trees_all_equal(out, data['a']*2)
+        chex.assert_trees_all_equal(out2, data['a']*3)
+
+
     def test_scan_batched_ExtraLastBatch(self):
         data = make_test_pytree(35)
 

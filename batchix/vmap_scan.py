@@ -37,6 +37,7 @@ def vmap_batched_scan(
                 Otherwise, may throw some padded values from vmap away.
     :return: The result of fn of each element (first axis is the batch axis).
     """
+    raise NotImplementedError("not fully implemented")
     num_elements = pytree_get_shape_first_axis_equal(args)
 
     def vmap_on_batch(carry, x):
@@ -70,6 +71,7 @@ def vmap_batched_scan(
             return carry, y
         else:
             return y
+
 
 
 Carry = TypeVar('Carry')
@@ -156,8 +158,8 @@ def scan_batched(
     # call directly
     if num_elements <= batch_size:
         carry, y = scan_fn(fn_carry_init, x)
-        if isinstance(y, tuple):
-            y, summary = y
+        if isinstance(y, YWithSummary):
+            y, summary_per_batch = y.y, y.summary
     else:
         # for too many elements we need to scan over batches
         x_batched, batch_remainder = pytree_split_in_batches_with_remainder(x,
