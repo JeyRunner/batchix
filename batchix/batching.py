@@ -71,8 +71,8 @@ def pytree_split_in_batches_with_remainder(
 
     # fill x margin with last data element
     x_shape_zero: int = pytree_get_shape_first_n_equal(x, first_n_shape_elements=1)[0]
-    assert x_shape_zero >= batch_size, \
-      f"batch size {batch_size} must be greater or equal to the number of elements in the data, which is {x_shape_zero}"
+    if x_shape_zero >= batch_size:
+        print(f"WARN: batch size {batch_size} must be smaller or equal to the number of elements in the data, which is {x_shape_zero}")
     num_batches = int(math.ceil(x_shape_zero / batch_size))
     x_remain_elements = num_batches * batch_size - x_shape_zero
 
