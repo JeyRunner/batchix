@@ -7,7 +7,7 @@ import jax
 import numpy as np
 from einshape import jax_einshape as einshape
 from jax import numpy as jnp
-from jaxtyping import PyTree, Shaped, Array, Integer
+from jaxtyping import PyTree, Shaped, Array, Integer, ArrayLike
 
 from batchix.tree_shape import (
     pytree_get_shape_first_axis_equal,
@@ -222,6 +222,31 @@ def pytree_sub_index_each_leaf(
     :param x:
     """
     return jax.tree_util.tree_map(lambda l: l[index], x)
+
+
+def pytree_dynamic_slice_in_dim(
+    x: PyTree["T"],
+    start_index: ArrayLike,
+    slice_size: int, axis: int = 0,
+    if_out_of_bounds_set_all_nan: bool = False
+    # allow_negative_indices: bool = True
+) -> PyTree["T"]:
+    """
+    Takes just the elements of the slice each leaf in the tree.
+    See jax.lax.dynamic_slice_in_dim.
+    :param if_out_of_bounds_set_all_nan: will set return to nans if index goes out of bounds.
+    """
+    def el(l):
+        end_index = start_index + slice_size -1
+        total_el_size = l.shape[axis]
+        sub = jax.lax.dynamic_slice_in_dim(
+            l, start_index=start_index, slice_size=slice_size, axis=axis #, allow_negative_indices=allow_negative_indices
+        )
+        if if_out_of_bounds_set_all_nan:
+            sub = jnp.where(end_index >= total_el_size, sub * jnp.nan, sub)
+        return sub
+
+    return jax.tree_util.tree_map(el, x)
 
 
 def pytree_squeeze_first_axis(x: PyTree):
