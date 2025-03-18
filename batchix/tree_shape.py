@@ -58,11 +58,23 @@ def pytree_get_shape_last_n_equal(
 
     def reduce_x_shape_zero(pre_shape, el):
         if pre_shape is not None:
-            assert el.shape[last_n_shape_elements:] == pre_shape, (
+            assert el.shape[-last_n_shape_elements:] == pre_shape, (
                 f"all pytree leafs need to have the last {last_n_shape_elements} shape sizes. "
                 f"Tree element {el} does not have the same shape as previous elements {pre_shape}"
             )
-        return el.shape[last_n_shape_elements:]
+        return el.shape[-last_n_shape_elements:]
 
     shape_suffix = jax.tree_util.tree_reduce(reduce_x_shape_zero, x, initializer=None)
     return shape_suffix
+
+
+def pytree_get_shape_last_axis_equal(
+    x: PyTree,
+) -> int:
+    """
+    Get the last element of the shape of the leafs of the given pytree x.
+    This assumes/checks that the last element of all the leafs of the pytree have the same shape.
+    :param x: the pytree
+    :return: return the last element of the shape of the pytree leafs
+    """
+    return pytree_get_shape_last_n_equal(x, last_n_shape_elements=1)[0]
