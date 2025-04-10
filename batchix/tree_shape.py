@@ -78,3 +78,25 @@ def pytree_get_shape_last_axis_equal(
     :return: return the last element of the shape of the pytree leafs
     """
     return pytree_get_shape_last_n_equal(x, last_n_shape_elements=1)[0]
+
+
+def pytree_get_shape_at_axis_equal(
+    x: PyTree, axis: int
+) -> Tuple[int, ...]:
+    """
+    Get the size of axis of the leafs of the given pytree x.
+    This assumes/checks that the size of axis of all the leafs of the pytree have the same shape.
+    :param x: the pytree
+    :param axis: return the size of this axis.
+    :return: return the size of the axis of the pytree leafs
+    """
+    def reduce_x_shape_zero(pre_shape, el):
+        if pre_shape is not None:
+            assert el.shape[axis] == pre_shape, (
+                f"all pytree leafs need to have the same size at axis {axis}. "
+                f"Tree element {el} does not have the same size as previous elements {pre_shape}"
+            )
+        return el.shape[axis]
+
+    size = jax.tree_util.tree_reduce(reduce_x_shape_zero, x, initializer=None)
+    return size
