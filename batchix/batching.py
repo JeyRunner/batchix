@@ -5,6 +5,7 @@ from typing import TypeVar, Literal, Any
 import chex
 import jax
 import numpy as np
+from black.linegen import partial
 from einshape import jax_einshape as einshape
 from jax import numpy as jnp
 from jaxtyping import PyTree, Shaped, Array, Integer, ArrayLike
@@ -247,6 +248,59 @@ def pytree_dynamic_slice_in_dim(
         return sub
 
     return jax.tree_util.tree_map(el, x)
+
+def pytree_dynamic_slice_in_dim__oob_set_nan(
+    x: PyTree["T"],
+    start_index: ArrayLike,
+    slice_size: int, axis: int = 0,
+) -> PyTree["T"]:
+    """
+    Takes just the elements of the slice each leaf in the tree.
+    Will set return to nans if index goes out of bounds.
+    See jax.lax.dynamic_slice_in_dim.
+    """
+    return pytree_dynamic_slice_in_dim(
+        x=x, start_index=start_index, slice_size=slice_size, axis=axis, if_out_of_bounds_set_all_nan=True
+    )
+
+def pytree_dynamic_slice_in_dim__vmapped(
+    x: PyTree["T"],
+    start_indies: ArrayLike,
+    slice_size: int,
+    axis=-1,
+    vmap_axis=0,
+    if_out_of_bounds_set_all_nan: bool = False
+) -> PyTree["T"]:
+    """
+    Takes just the elements of the slice each leaf in the tree.
+    Each element in vmap_axis gets its own start_index.
+    See jax.lax.dynamic_slice_in_dim.
+    :param if_out_of_bounds_set_all_nan: will set return to nans if index goes out of bounds.
+    """
+    return jax.vmap(
+        partial(
+            pytree_dynamic_slice_in_dim, slice_size=slice_size, axis=axis,
+            if_out_of_bounds_set_all_nan=if_out_of_bounds_set_all_nan
+        ),
+        in_axes=(vmap_axis, vmap_axis), out_axes=(vmap_axis)
+    )(x, start_indies)
+
+
+def pytree_dynamic_slice_in_dim__vmapped__oob_set_nan(
+    x: PyTree["T"],
+    start_indies: ArrayLike,
+    slice_size: int,
+    axis=-1,
+    vmap_axis=0,
+) -> PyTree["T"]:
+    """
+    Takes just the elements of the slice each leaf in the tree.
+    Each element in vmap_axis gets its own start_index. Will set return to nans if index goes out of bounds.
+    """
+    return pytree_dynamic_slice_in_dim__vmapped(
+        x=x, start_indies=start_indies, slice_size=slice_size, axis=axis, vmap_axis=vmap_axis,
+        if_out_of_bounds_set_all_nan=True
+    )
 
 
 def pytree_squeeze_first_axis(x: PyTree):
