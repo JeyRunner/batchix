@@ -309,3 +309,10 @@ def pytree_squeeze_first_axis(x: PyTree):
     """
     assert pytree_get_shape_first_axis_equal(x) == 1, "First axis needs to be of size 1"
     return jax.tree_util.tree_map(lambda l: l[0], x)
+
+
+def pytree_add_first_axis(x: PyTree):
+    """
+    Adds fist axis from all pytree leafs, the first axis will have size 1.
+    """
+    return jax.tree_util.tree_map(lambda l: l[jnp.newaxis, ...], x)
