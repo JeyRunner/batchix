@@ -5,7 +5,6 @@ import jax
 from einshape import jax_einshape as einshape
 from jax import numpy as jnp
 from jaxtyping import PyTree, Shaped, Array, Integer
-from numpy.lib.index_tricks import IndexExpression
 
 from batchix.batching import pytree_split_in_batches_with_remainder, pytree_sub_index_each_leaf, pytree_combine_batches
 from batchix.tree_shape import pytree_get_shape_first_axis_equal

@@ -1,11 +1,11 @@
 import math
 from argparse import ArgumentError
+from functools import partial
 from typing import TypeVar, Literal, Any
 
 import chex
 import jax
 import numpy as np
-from black.linegen import partial
 from einshape import jax_einshape as einshape
 from jax import numpy as jnp
 from jaxtyping import PyTree, Shaped, Array, Integer, ArrayLike
